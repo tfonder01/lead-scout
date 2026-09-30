@@ -20,6 +20,17 @@ export type SearchBusinessesInput = {
   filters?: SearchFilters;
 };
 
+export const OPERATIONAL_STATUSES = [
+  "OPERATIONAL",
+  "CLOSED_TEMPORARILY",
+  "CLOSED_PERMANENTLY",
+  "UNKNOWN",
+] as const;
+
+export type OperationalStatus = (typeof OPERATIONAL_STATUSES)[number];
+
+export type BusinessProvider = "MOCK" | "GOOGLE_PLACES";
+
 export type SourceBusiness = {
   id: string;
   businessName: string;
@@ -27,13 +38,17 @@ export type SourceBusiness = {
   address: string;
   phone: string | null;
   website: string | null;
-  rating: number;
-  reviewCount: number;
-  latestReviewDate: string;
+  rating: number | null;
+  reviewCount: number | null;
+  latestReviewDate: string | null;
   source: string;
+  provider: BusinessProvider;
   sourceBusinessId: string;
   sourceUrl?: string;
   websiteStatus: WebsiteStatus;
+  operationalStatus: OperationalStatus;
+  primaryType: string | null;
+  pureServiceAreaBusiness: boolean | null;
 };
 
 export type CandidateBusiness = SourceBusiness & {
@@ -43,3 +58,13 @@ export type CandidateBusiness = SourceBusiness & {
 
 export type PriorityBand = "HIGH" | "REVIEW" | "LOW";
 
+export type SearchBusinessesResult = {
+  businesses: CandidateBusiness[];
+  provider: BusinessProvider;
+  providerLabel: string;
+  referenceDate: string;
+  supportsReviewRecency: boolean;
+  requestCount: number;
+  hasSearched: boolean;
+  error: string | null;
+};

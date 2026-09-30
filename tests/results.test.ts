@@ -15,8 +15,12 @@ function result(id: string, leadScore: number, reviewCount: number, latestReview
     reviewCount,
     latestReviewDate,
     source: "Test Source",
+    provider: "MOCK",
     sourceBusinessId: id,
     websiteStatus: "NONE",
+    operationalStatus: "UNKNOWN",
+    primaryType: null,
+    pureServiceAreaBusiness: null,
     leadScore,
     scoreReasons: [],
   };
@@ -47,4 +51,3 @@ test("result filters select priority, website, and recent activity signals", () 
   assert.deepEqual(filterBusinesses(businesses, "weak", "2026-09-28").map(({ id }) => id), ["weak"]);
   assert.deepEqual(filterBusinesses(businesses, "recent", "2026-09-28").map(({ id }) => id), ["high"]);
 });
-

@@ -12,9 +12,10 @@ export function daysBetween(earlierDate: string, laterDate: string): number {
 }
 
 export function formatReviewActivity(
-  latestReviewDate: string,
+  latestReviewDate: string | null,
   referenceDate: string,
 ): string {
+  if (!latestReviewDate) return "Not available";
   const days = daysBetween(latestReviewDate, referenceDate);
 
   if (days === 0) return "Today";
@@ -23,4 +24,3 @@ export function formatReviewActivity(
   if (days < 730) return `${Math.floor(days / 30)} months ago`;
   return `${Math.floor(days / 365)} years ago`;
 }
-

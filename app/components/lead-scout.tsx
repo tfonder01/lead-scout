@@ -3,53 +3,79 @@
 import { useMemo, useState, useTransition } from "react";
 import { searchBusinesses } from "@/app/actions";
 import { filterBusinesses, sortBusinesses, type ResultFilter, type ResultSort } from "@/lib/results";
-import type { CandidateBusiness, SearchBusinessesInput } from "@/lib/sources/types";
+import type { SearchBusinessesInput, SearchBusinessesResult } from "@/lib/sources/types";
 import { LeadResultCard } from "./lead-result-card";
 import { ResultsFilters } from "./results-filters";
 import { ResultsSummary } from "./results-summary";
 import { SearchForm } from "./search-form";
 
-export function LeadScout({ initialQuery, initialResults, referenceDate }: {
+export function LeadScout({ initialQuery, initialResult }: {
   initialQuery: SearchBusinessesInput;
-  initialResults: CandidateBusiness[];
-  referenceDate: string;
+  initialResult: SearchBusinessesResult;
 }) {
-  const [results, setResults] = useState(initialResults);
+  const [searchResult, setSearchResult] = useState(initialResult);
   const [lastQuery, setLastQuery] = useState(initialQuery);
   const [activeFilter, setActiveFilter] = useState<ResultFilter>("all");
   const [sort, setSort] = useState<ResultSort>("score");
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const visibleResults = useMemo(() => {
-    const filtered = filterBusinesses(results, activeFilter, referenceDate);
+    const filtered = filterBusinesses(
+      searchResult.businesses,
+      activeFilter,
+      searchResult.referenceDate,
+    );
     return sortBusinesses(filtered, sort);
-  }, [activeFilter, referenceDate, results, sort]);
+  }, [activeFilter, searchResult, sort]);
 
   function handleSearch(query: SearchBusinessesInput) {
-    setError(null);
     startTransition(async () => {
       try {
-        const nextResults = await searchBusinesses(query);
-        setResults(nextResults);
+        const nextResult = await searchBusinesses(query);
+        setSearchResult(nextResult);
         setLastQuery(query);
         setActiveFilter("all");
         setSort("score");
       } catch {
-        setError("The mock search could not be completed. Please try again.");
+        setSearchResult((current) => ({
+          ...current,
+          businesses: [],
+          hasSearched: true,
+          error: "Lead Scout search is temporarily unavailable.",
+        }));
       }
     });
   }
 
+  const isGoogle = searchResult.provider === "GOOGLE_PLACES";
+
   return (
     <>
-      <SearchForm initialQuery={initialQuery} isPending={isPending} onSearch={handleSearch} />
-      <div className="dataset-note"><span className="status-dot" aria-hidden="true" />Deterministic mock dataset · activity measured as of {referenceDate}</div>
+      <SearchForm
+        initialQuery={initialQuery}
+        isPending={isPending}
+        onSearch={handleSearch}
+        supportsReviewRecency={searchResult.supportsReviewRecency}
+      />
+      <div className="dataset-note">
+        <span className="status-dot" aria-hidden="true" />
+        {searchResult.providerLabel}
+        {searchResult.supportsReviewRecency && ` · activity measured as of ${searchResult.referenceDate}`}
+        {isGoogle && searchResult.requestCount > 0 && " · 1 provider request"}
+      </div>
 
-      {error ? (
-        <div className="state-panel" role="alert"><strong>Search unavailable</strong><p>{error}</p></div>
-      ) : results.length === 0 ? (
-        <div className="state-panel" aria-live="polite"><strong>No mock businesses matched this search</strong><p>Try another supported service or a Central Florida location such as Orlando, FL or Winter Park, FL.</p></div>
+      {searchResult.error ? (
+        <div className="state-panel" role="alert"><strong>Search unavailable</strong><p>{searchResult.error}</p></div>
+      ) : !searchResult.hasSearched ? (
+        <div className="state-panel" aria-live="polite">
+          <strong>Ready to search Google Places</strong>
+          <p>Choose an industry and location, then search when you are ready.</p>
+        </div>
+      ) : searchResult.businesses.length === 0 ? (
+        <div className="state-panel" aria-live="polite">
+          <strong>No businesses matched this search</strong>
+          <p>Try a different industry, location, or optional filter.</p>
+        </div>
       ) : (
         <section className="results-section" aria-busy={isPending}>
           <div className="results-heading">
@@ -59,15 +85,32 @@ export function LeadScout({ initialQuery, initialResults, referenceDate }: {
               <p>{lastQuery.industry} near {lastQuery.location}. Scores are prioritization guidance, not an objective measure of business quality.</p>
             </div>
           </div>
-          <ResultsSummary businesses={results} referenceDate={referenceDate} />
-          <ResultsFilters activeFilter={activeFilter} sort={sort} onFilterChange={setActiveFilter} onSortChange={setSort} />
+          <ResultsSummary
+            businesses={searchResult.businesses}
+            referenceDate={searchResult.referenceDate}
+            supportsReviewRecency={searchResult.supportsReviewRecency}
+          />
+          <ResultsFilters
+            activeFilter={activeFilter}
+            sort={sort}
+            onFilterChange={setActiveFilter}
+            onSortChange={setSort}
+            supportsReviewRecency={searchResult.supportsReviewRecency}
+          />
           {visibleResults.length === 0 ? (
             <div className="state-panel compact" aria-live="polite"><strong>No results in this view</strong><p>Choose another result filter to see the matching businesses.</p></div>
           ) : (
             <div className="lead-list">
-              {visibleResults.map((business) => <LeadResultCard key={business.id} business={business} referenceDate={referenceDate} />)}
+              {visibleResults.map((business) => (
+                <LeadResultCard
+                  key={business.id}
+                  business={business}
+                  referenceDate={searchResult.referenceDate}
+                />
+              ))}
             </div>
           )}
+          {isGoogle && <div className="google-attribution">Google Maps</div>}
         </section>
       )}
     </>

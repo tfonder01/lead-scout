@@ -4,7 +4,12 @@ import { daysBetween } from "../utils/dates.ts";
 
 export const MOCK_DATA_AS_OF = "2026-09-28";
 
-const MOCK_BUSINESSES: SourceBusiness[] = [
+const RAW_MOCK_BUSINESSES: Array<
+  Omit<
+    SourceBusiness,
+    "provider" | "operationalStatus" | "primaryType" | "pureServiceAreaBusiness"
+  >
+> = [
   {
     id: "mock-tree-001",
     businessName: "Canopy Crew Tree Care",
@@ -307,6 +312,14 @@ const MOCK_BUSINESSES: SourceBusiness[] = [
   },
 ];
 
+const MOCK_BUSINESSES: SourceBusiness[] = RAW_MOCK_BUSINESSES.map((business) => ({
+  ...business,
+  provider: "MOCK",
+  operationalStatus: "UNKNOWN",
+  primaryType: null,
+  pureServiceAreaBusiness: null,
+}));
+
 function normalize(value: string): string {
   return value.trim().toLocaleLowerCase();
 }
@@ -329,12 +342,13 @@ export class MockBusinessSource implements BusinessSource {
         normalize(business.businessName).includes(normalizedIndustry);
       const locationMatches =
         !normalizedLocation || normalize(business.address).includes(normalizedLocation);
-      const ratingMatches = business.rating >= (filters.minimumRating ?? 0);
+      const ratingMatches = (business.rating ?? 0) >= (filters.minimumRating ?? 0);
       const reviewCountMatches =
-        business.reviewCount >= (filters.minimumReviewCount ?? 0);
+        (business.reviewCount ?? 0) >= (filters.minimumReviewCount ?? 0);
       const recentMatches =
         !filters.recentReviewActivity ||
-        daysBetween(business.latestReviewDate, MOCK_DATA_AS_OF) <= 30;
+        (business.latestReviewDate !== null &&
+          daysBetween(business.latestReviewDate, MOCK_DATA_AS_OF) <= 30);
 
       return (
         industryMatches &&

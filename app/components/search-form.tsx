@@ -16,9 +16,10 @@ type SearchFormProps = {
   initialQuery: SearchBusinessesInput;
   isPending: boolean;
   onSearch: (query: SearchBusinessesInput) => void;
+  supportsReviewRecency: boolean;
 };
 
-export function SearchForm({ initialQuery, isPending, onSearch }: SearchFormProps) {
+export function SearchForm({ initialQuery, isPending, onSearch, supportsReviewRecency }: SearchFormProps) {
   const [industry, setIndustry] = useState(initialQuery.industry);
   const [location, setLocation] = useState(initialQuery.location);
   const [minimumRating, setMinimumRating] = useState(String(initialQuery.filters?.minimumRating ?? 0));
@@ -79,12 +80,13 @@ export function SearchForm({ initialQuery, isPending, onSearch }: SearchFormProp
             <option value="100">100+</option>
           </select>
         </label>
-        <label className="checkbox-field">
-          <input type="checkbox" checked={recentOnly} onChange={(event) => setRecentOnly(event.target.checked)} />
-          <span>Review in last 30 days</span>
-        </label>
+        {supportsReviewRecency && (
+          <label className="checkbox-field">
+            <input type="checkbox" checked={recentOnly} onChange={(event) => setRecentOnly(event.target.checked)} />
+            <span>Review in last 30 days</span>
+          </label>
+        )}
       </div>
     </form>
   );
 }
-

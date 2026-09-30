@@ -18,6 +18,10 @@ const WEBSITE_LABELS: Record<CandidateBusiness["websiteStatus"], string> = {
 
 export function LeadResultCard({ business, referenceDate }: { business: CandidateBusiness; referenceDate: string }) {
   const band = getPriorityBand(business.leadScore);
+  const ratingLabel = business.rating === null ? "Not available" : `${business.rating.toFixed(1)} / 5`;
+  const reviewCountLabel = business.reviewCount === null
+    ? "Review count unavailable"
+    : `${business.reviewCount} reviews`;
 
   return (
     <article className="lead-card">
@@ -34,14 +38,14 @@ export function LeadResultCard({ business, referenceDate }: { business: Candidat
       </div>
 
       <div className="lead-facts">
-        <div><span className="fact-label">Rating</span><strong>{business.rating.toFixed(1)} / 5</strong><small>{business.reviewCount} reviews</small></div>
-        <div><span className="fact-label">Latest review</span><strong>{formatReviewActivity(business.latestReviewDate, referenceDate)}</strong><small>{business.latestReviewDate}</small></div>
+        <div><span className="fact-label">Rating</span><strong>{ratingLabel}</strong><small>{reviewCountLabel}</small></div>
+        <div><span className="fact-label">Latest review</span><strong>{formatReviewActivity(business.latestReviewDate, referenceDate)}</strong><small>{business.latestReviewDate ?? "Not provided by source"}</small></div>
         <div>
           <span className="fact-label">Phone</span>
           {business.phone ? <a href={`tel:${business.phone.replace(/\D/g, "")}`}>{business.phone}</a> : <strong className="muted-value">Not found</strong>}
           <small>Public listing</small>
         </div>
-        <div><span className="fact-label">Website</span><strong>{WEBSITE_LABELS[business.websiteStatus]}</strong><small>Mock status</small></div>
+        <div><span className="fact-label">Website</span><strong>{WEBSITE_LABELS[business.websiteStatus]}</strong><small>{business.provider === "MOCK" ? "Mock status" : "Presence only"}</small></div>
       </div>
 
       <div className="score-explanation">
@@ -61,4 +65,3 @@ export function LeadResultCard({ business, referenceDate }: { business: Candidat
     </article>
   );
 }
-

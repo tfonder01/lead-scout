@@ -2,12 +2,30 @@ import { getPriorityBand } from "@/lib/scoring/lead-score";
 import type { CandidateBusiness } from "@/lib/sources/types";
 import { daysBetween } from "@/lib/utils/dates";
 
-export function ResultsSummary({ businesses, referenceDate }: { businesses: CandidateBusiness[]; referenceDate: string }) {
+export function ResultsSummary({
+  businesses,
+  referenceDate,
+  supportsReviewRecency,
+}: {
+  businesses: CandidateBusiness[];
+  referenceDate: string;
+  supportsReviewRecency: boolean;
+}) {
+  const contextualStat: readonly [number, string] = supportsReviewRecency
+    ? [
+        businesses.filter(
+          (business) =>
+            business.latestReviewDate !== null &&
+            daysBetween(business.latestReviewDate, referenceDate) > 365,
+        ).length,
+        "inactive-looking",
+      ]
+    : [businesses.filter((business) => business.phone !== null).length, "with phone"];
   const stats = [
     [businesses.length, "businesses found"],
     [businesses.filter((business) => getPriorityBand(business.leadScore) === "HIGH").length, "high-priority"],
     [businesses.filter((business) => business.websiteStatus === "NONE").length, "no website"],
-    [businesses.filter((business) => daysBetween(business.latestReviewDate, referenceDate) > 365).length, "inactive-looking"],
+    contextualStat,
   ] as const;
 
   return (
@@ -18,4 +36,3 @@ export function ResultsSummary({ businesses, referenceDate }: { businesses: Cand
     </section>
   );
 }
-

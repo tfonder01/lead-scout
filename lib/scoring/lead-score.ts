@@ -8,6 +8,9 @@ export const LEAD_SCORE_WEIGHTS = {
   reviewWithin90Days: 4,
   reviewOlderThanOneYear: -15,
   reviewNotRecent: -6,
+  operational: 5,
+  temporarilyClosed: -25,
+  permanentlyClosed: -60,
   reviews100Plus: 12,
   reviews25Plus: 8,
   reviews10Plus: 4,
@@ -46,52 +49,54 @@ export function calculateLeadScore(
 ): LeadScoreResult {
   let score = LEAD_SCORE_WEIGHTS.base;
   const reasons: string[] = [];
-  const reviewAge = daysBetween(business.latestReviewDate, referenceDate);
+  const reviewAge = business.latestReviewDate
+    ? daysBetween(business.latestReviewDate, referenceDate)
+    : null;
 
-  if (reviewAge <= 14) {
+  if (reviewAge !== null && reviewAge <= 14) {
     score += LEAD_SCORE_WEIGHTS.reviewWithin14Days;
     reasons.push(`+ Recent review ${reviewAge === 0 ? "today" : `${reviewAge} days ago`}`);
-  } else if (reviewAge <= 30) {
+  } else if (reviewAge !== null && reviewAge <= 30) {
     score += LEAD_SCORE_WEIGHTS.reviewWithin30Days;
     reasons.push(`+ Review within 30 days (${reviewAge} days ago)`);
-  } else if (reviewAge <= 90) {
+  } else if (reviewAge !== null && reviewAge <= 90) {
     score += LEAD_SCORE_WEIGHTS.reviewWithin90Days;
     reasons.push(`+ Review activity ${reviewAge} days ago`);
-  } else if (reviewAge > 365) {
+  } else if (reviewAge !== null && reviewAge > 365) {
     score += LEAD_SCORE_WEIGHTS.reviewOlderThanOneYear;
     reasons.push(`- Latest review over ${Math.floor(reviewAge / 365)} year${reviewAge >= 730 ? "s" : ""} ago`);
-  } else {
+  } else if (reviewAge !== null) {
     score += LEAD_SCORE_WEIGHTS.reviewNotRecent;
     reasons.push("- No review activity in the last 90 days");
   }
 
-  if (business.reviewCount >= 100) {
+  if (business.reviewCount !== null && business.reviewCount >= 100) {
     score += LEAD_SCORE_WEIGHTS.reviews100Plus;
     reasons.push(`+ ${business.reviewCount} reviews`);
-  } else if (business.reviewCount >= 25) {
+  } else if (business.reviewCount !== null && business.reviewCount >= 25) {
     score += LEAD_SCORE_WEIGHTS.reviews25Plus;
     reasons.push(`+ ${business.reviewCount} reviews`);
-  } else if (business.reviewCount >= 10) {
+  } else if (business.reviewCount !== null && business.reviewCount >= 10) {
     score += LEAD_SCORE_WEIGHTS.reviews10Plus;
     reasons.push(`+ ${business.reviewCount} reviews`);
-  } else if (business.reviewCount < 5) {
+  } else if (business.reviewCount !== null && business.reviewCount < 5) {
     score += LEAD_SCORE_WEIGHTS.reviewsUnder5;
     reasons.push(`- Only ${business.reviewCount} review${business.reviewCount === 1 ? "" : "s"}`);
   }
 
-  if (business.rating >= 4.7) {
+  if (business.rating !== null && business.rating >= 4.7) {
     score += LEAD_SCORE_WEIGHTS.rating47Plus;
     reasons.push(`+ Strong ${business.rating.toFixed(1)} rating`);
-  } else if (business.rating >= 4.4) {
+  } else if (business.rating !== null && business.rating >= 4.4) {
     score += LEAD_SCORE_WEIGHTS.rating44Plus;
     reasons.push(`+ Solid ${business.rating.toFixed(1)} rating`);
-  } else if (business.rating >= 4) {
+  } else if (business.rating !== null && business.rating >= 4) {
     score += LEAD_SCORE_WEIGHTS.rating40Plus;
     reasons.push(`+ ${business.rating.toFixed(1)} rating`);
-  } else if (business.rating < 3.5) {
+  } else if (business.rating !== null && business.rating < 3.5) {
     score += LEAD_SCORE_WEIGHTS.ratingUnder35;
     reasons.push(`- Poor ${business.rating.toFixed(1)} rating`);
-  } else {
+  } else if (business.rating !== null) {
     score += LEAD_SCORE_WEIGHTS.ratingBelow4;
     reasons.push(`- Average ${business.rating.toFixed(1)} rating`);
   }
@@ -119,7 +124,19 @@ export function calculateLeadScore(
     reasons.push("+ High-value service category");
   }
 
+  if (business.operationalStatus === "OPERATIONAL") {
+    score += LEAD_SCORE_WEIGHTS.operational;
+    reasons.push("+ Listed as operational");
+  } else if (business.operationalStatus === "CLOSED_TEMPORARILY") {
+    score += LEAD_SCORE_WEIGHTS.temporarilyClosed;
+    reasons.push("- Listed as temporarily closed");
+  } else if (business.operationalStatus === "CLOSED_PERMANENTLY") {
+    score += LEAD_SCORE_WEIGHTS.permanentlyClosed;
+    reasons.push("- Listed as permanently closed");
+  }
+
   if (
+    reviewAge !== null &&
     reviewAge > 730 &&
     (!business.phone || business.websiteStatus === "UNREACHABLE")
   ) {

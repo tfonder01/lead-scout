@@ -17,8 +17,12 @@ function candidate(overrides: Partial<SourceBusiness> = {}): SourceBusiness {
     reviewCount: 30,
     latestReviewDate: "2026-09-20",
     source: "Test Source",
+    provider: "MOCK",
     sourceBusinessId: "TEST-001",
     websiteStatus: "WEAK",
+    operationalStatus: "UNKNOWN",
+    primaryType: null,
+    pureServiceAreaBusiness: null,
     ...overrides,
   };
 }
@@ -70,4 +74,25 @@ test("priority band classification uses the documented boundaries", () => {
   assert.equal(getPriorityBand(60), "REVIEW");
   assert.equal(getPriorityBand(59), "LOW");
   assert.equal(getPriorityBand(0), "LOW");
+});
+
+test("scoring omits review-recency signals when a source has no review date", () => {
+  const result = calculateLeadScore(candidate({ latestReviewDate: null }), REFERENCE_DATE);
+
+  assert.ok(result.reasons.every((reason) => !reason.toLowerCase().includes("review activity")));
+  assert.ok(result.reasons.every((reason) => !reason.toLowerCase().includes("recent review")));
+});
+
+test("operational status affects real-provider scoring without fabricated activity", () => {
+  const operational = calculateLeadScore(
+    candidate({ latestReviewDate: null, operationalStatus: "OPERATIONAL" }),
+    REFERENCE_DATE,
+  );
+  const closed = calculateLeadScore(
+    candidate({ latestReviewDate: null, operationalStatus: "CLOSED_PERMANENTLY" }),
+    REFERENCE_DATE,
+  );
+
+  assert.equal(operational.score - closed.score, 65);
+  assert.ok(closed.reasons.includes("- Listed as permanently closed"));
 });

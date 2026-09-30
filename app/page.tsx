@@ -1,6 +1,5 @@
-import { MOCK_DATA_AS_OF } from "@/lib/sources/mock-source";
 import type { SearchBusinessesInput } from "@/lib/sources/types";
-import { searchBusinesses } from "./actions";
+import { getInitialSearchResult } from "./actions";
 import { LeadScout } from "./components/lead-scout";
 
 const INITIAL_QUERY: SearchBusinessesInput = {
@@ -9,8 +8,10 @@ const INITIAL_QUERY: SearchBusinessesInput = {
   filters: { minimumRating: 0, minimumReviewCount: 0, recentReviewActivity: false },
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
-  const initialResults = await searchBusinesses(INITIAL_QUERY);
+  const initialResult = await getInitialSearchResult(INITIAL_QUERY);
 
   return (
     <main className="app-shell">
@@ -19,15 +20,15 @@ export default async function Home() {
           <div className="brand-mark" aria-hidden="true">SP</div>
           <div><strong>SentryPoint</strong><span>Lead Scout</span></div>
         </div>
-        <div className="environment-label">Internal tool · V1 mock mode</div>
+        <div className="environment-label">Internal tool · Phase 1</div>
       </header>
 
       <div className="workspace">
         <section className="intro">
           <div><span className="eyebrow">Business prospecting</span><h1>Find the next local business worth calling.</h1></div>
-          <p>Search a deterministic set of synthetic businesses, compare lead signals, and focus the day&apos;s outreach without touching the CRM.</p>
+          <p>Search local businesses, compare reliable lead signals, and focus the day&apos;s outreach without touching the CRM.</p>
         </section>
-        <LeadScout initialQuery={INITIAL_QUERY} initialResults={initialResults} referenceDate={MOCK_DATA_AS_OF} />
+        <LeadScout initialQuery={INITIAL_QUERY} initialResult={initialResult} />
       </div>
     </main>
   );

@@ -15,7 +15,8 @@ export function filterBusinesses(
     if (filter === "none") return business.websiteStatus === "NONE";
     if (filter === "weak") return business.websiteStatus === "WEAK";
     if (filter === "recent") {
-      return daysBetween(business.latestReviewDate, referenceDate) <= 30;
+      return business.latestReviewDate !== null &&
+        daysBetween(business.latestReviewDate, referenceDate) <= 30;
     }
     return true;
   });
@@ -26,10 +27,12 @@ export function sortBusinesses(
   sort: ResultSort,
 ): CandidateBusiness[] {
   return [...businesses].sort((a, b) => {
-    if (sort === "reviews") return b.reviewCount - a.reviewCount;
+    if (sort === "reviews") return (b.reviewCount ?? -1) - (a.reviewCount ?? -1);
     if (sort === "newest") {
-      return Date.parse(b.latestReviewDate) - Date.parse(a.latestReviewDate);
+      return (b.latestReviewDate ? Date.parse(b.latestReviewDate) : 0) -
+        (a.latestReviewDate ? Date.parse(a.latestReviewDate) : 0);
     }
-    return b.leadScore - a.leadScore || b.reviewCount - a.reviewCount;
+    return b.leadScore - a.leadScore ||
+      (b.reviewCount ?? -1) - (a.reviewCount ?? -1);
   });
 }
