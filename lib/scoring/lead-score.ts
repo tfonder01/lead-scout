@@ -1,34 +1,35 @@
-import type { PriorityBand, SourceBusiness } from "../sources/types";
+import type { PriorityBand } from "../sources/types";
+import type { WebsiteEnrichedBusiness } from "../enrichment/website-enrichment.ts";
 import { daysBetween } from "../utils/dates.ts";
 
 export const LEAD_SCORE_WEIGHTS = {
-  base: 35,
-  reviewWithin14Days: 20,
-  reviewWithin30Days: 12,
-  reviewWithin90Days: 4,
-  reviewOlderThanOneYear: -15,
-  reviewNotRecent: -6,
-  operational: 5,
-  temporarilyClosed: -25,
-  permanentlyClosed: -60,
-  reviews100Plus: 12,
-  reviews25Plus: 8,
+  base: 30,
+  reviewWithin14Days: 10,
+  reviewWithin30Days: 6,
+  reviewWithin90Days: 2,
+  reviewOlderThanOneYear: -8,
+  reviewNotRecent: -3,
+  operational: 6,
+  temporarilyClosed: -30,
+  permanentlyClosed: -70,
+  reviews100Plus: 8,
+  reviews25Plus: 7,
   reviews10Plus: 4,
-  reviewsUnder5: -12,
-  rating47Plus: 12,
-  rating44Plus: 8,
+  reviewsUnder5: -8,
+  rating47Plus: 8,
+  rating44Plus: 6,
   rating40Plus: 3,
-  ratingUnder35: -15,
-  ratingBelow4: -5,
-  noWebsite: 15,
-  unreachableWebsite: 12,
-  weakWebsite: 8,
-  unknownWebsite: 3,
-  healthyWebsite: -6,
-  publicPhone: 8,
-  missingPhone: -18,
-  highValueIndustry: 5,
-  likelyInactive: -20,
+  ratingUnder35: -12,
+  ratingBelow4: -4,
+  noWebsite: 30,
+  unreachableWebsite: 25,
+  weakWebsite: 25,
+  unknownWebsite: 0,
+  healthyWebsite: -20,
+  publicPhone: 10,
+  missingPhone: -20,
+  highValueIndustry: 4,
+  likelyInactive: -15,
 } as const;
 
 const HIGH_VALUE_CATEGORIES = new Set([
@@ -44,7 +45,7 @@ export type LeadScoreResult = {
 };
 
 export function calculateLeadScore(
-  business: SourceBusiness,
+  business: WebsiteEnrichedBusiness,
   referenceDate: string,
 ): LeadScoreResult {
   let score = LEAD_SCORE_WEIGHTS.base;
@@ -101,15 +102,16 @@ export function calculateLeadScore(
     reasons.push(`- Average ${business.rating.toFixed(1)} rating`);
   }
 
-  const websiteReason: Record<SourceBusiness["websiteStatus"], [number, string]> = {
-    NONE: [LEAD_SCORE_WEIGHTS.noWebsite, "+ No website found"],
-    UNREACHABLE: [LEAD_SCORE_WEIGHTS.unreachableWebsite, "+ Website appears unavailable"],
-    WEAK: [LEAD_SCORE_WEIGHTS.weakWebsite, "+ Website appears weak"],
-    UNKNOWN: [LEAD_SCORE_WEIGHTS.unknownWebsite, "+ Website status needs review"],
-    HEALTHY: [LEAD_SCORE_WEIGHTS.healthyWebsite, "- Established website appears healthy"],
+  const websiteStatus = business.websiteEnrichment.websiteStatus;
+  const websiteReason: Record<typeof websiteStatus, [number, string]> = {
+    NONE: [LEAD_SCORE_WEIGHTS.noWebsite, "+ No website listed"],
+    UNREACHABLE: [LEAD_SCORE_WEIGHTS.unreachableWebsite, "+ Website landing page was unreachable"],
+    WEAK: [LEAD_SCORE_WEIGHTS.weakWebsite, "+ Website has basic opportunity signals"],
+    UNKNOWN: [LEAD_SCORE_WEIGHTS.unknownWebsite, "- Website opportunity could not be classified"],
+    HEALTHY: [LEAD_SCORE_WEIGHTS.healthyWebsite, "- Website has healthy sales-fit signals"],
   };
-  score += websiteReason[business.websiteStatus][0];
-  reasons.push(websiteReason[business.websiteStatus][1]);
+  score += websiteReason[websiteStatus][0];
+  reasons.push(websiteReason[websiteStatus][1]);
 
   if (business.phone) {
     score += LEAD_SCORE_WEIGHTS.publicPhone;
@@ -138,7 +140,7 @@ export function calculateLeadScore(
   if (
     reviewAge !== null &&
     reviewAge > 730 &&
-    (!business.phone || business.websiteStatus === "UNREACHABLE")
+    (!business.phone || websiteStatus === "UNREACHABLE")
   ) {
     score += LEAD_SCORE_WEIGHTS.likelyInactive;
     reasons.push("- Multiple signs suggest the business may be inactive");

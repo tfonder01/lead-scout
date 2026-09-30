@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateLeadScore, getPriorityBand } from "../lib/scoring/lead-score.ts";
-import type { SourceBusiness } from "../lib/sources/types.ts";
+import type { WebsiteEnrichedBusiness } from "../lib/enrichment/website-enrichment.ts";
+import type { SourceBusiness, WebsiteStatus } from "../lib/sources/types.ts";
 
 const REFERENCE_DATE = "2026-09-28";
 
-function candidate(overrides: Partial<SourceBusiness> = {}): SourceBusiness {
+function candidate(
+  overrides: Partial<SourceBusiness> = {},
+  websiteStatus: WebsiteStatus = "WEAK",
+): WebsiteEnrichedBusiness {
   return {
     id: "test-business",
     businessName: "Test Service Co.",
@@ -19,11 +23,18 @@ function candidate(overrides: Partial<SourceBusiness> = {}): SourceBusiness {
     source: "Test Source",
     provider: "MOCK",
     sourceBusinessId: "TEST-001",
-    websiteStatus: "WEAK",
     operationalStatus: "UNKNOWN",
     primaryType: null,
     pureServiceAreaBusiness: null,
     ...overrides,
+    websiteEnrichment: {
+      websiteStatus,
+      finalUrl: overrides.website === null ? null : "https://test-service.example/",
+      httpStatus: websiteStatus === "HEALTHY" || websiteStatus === "WEAK" ? 200 : null,
+      responseTimeMs: 100,
+      signals: [],
+      checkedAt: "2026-09-28T00:00:00.000Z",
+    },
   };
 }
 
@@ -40,7 +51,7 @@ test("a review within 14 days earns more than a 30-day review", () => {
   const recent = calculateLeadScore(candidate({ latestReviewDate: "2026-09-23" }), REFERENCE_DATE);
   const older = calculateLeadScore(candidate({ latestReviewDate: "2026-09-08" }), REFERENCE_DATE);
 
-  assert.equal(recent.score - older.score, 8);
+  assert.equal(recent.score - older.score, 4);
   assert.match(recent.reasons[0], /Recent review 5 days ago/);
 });
 
@@ -52,18 +63,42 @@ test("a stale review receives the over-one-year penalty", () => {
 });
 
 test("a missing website creates a larger opportunity signal than a healthy website", () => {
-  const missing = calculateLeadScore(candidate({ website: null, websiteStatus: "NONE" }), REFERENCE_DATE);
-  const healthy = calculateLeadScore(candidate({ websiteStatus: "HEALTHY" }), REFERENCE_DATE);
+  const missing = calculateLeadScore(candidate({ website: null }, "NONE"), REFERENCE_DATE);
+  const healthy = calculateLeadScore(candidate({}, "HEALTHY"), REFERENCE_DATE);
 
-  assert.equal(missing.score - healthy.score, 21);
-  assert.ok(missing.reasons.includes("+ No website found"));
+  assert.equal(missing.score - healthy.score, 50);
+  assert.ok(missing.reasons.includes("+ No website listed"));
+});
+
+test("weak website opportunity materially raises priority over a healthy site", () => {
+  const weak = calculateLeadScore(candidate({}, "WEAK"), REFERENCE_DATE);
+  const healthy = calculateLeadScore(candidate({}, "HEALTHY"), REFERENCE_DATE);
+
+  assert.equal(weak.score - healthy.score, 45);
+});
+
+test("huge review counts do not dominate website opportunity", () => {
+  const hugeHealthy = calculateLeadScore(
+    candidate({ reviewCount: 900, rating: 4.9 }, "HEALTHY"),
+    REFERENCE_DATE,
+  );
+  const legitimateWeak = calculateLeadScore(
+    candidate({ reviewCount: 40, rating: 4.5 }, "WEAK"),
+    REFERENCE_DATE,
+  );
+
+  assert.ok(legitimateWeak.score > hugeHealthy.score);
+  assert.equal(
+    calculateLeadScore(candidate({ reviewCount: 900 }, "HEALTHY"), REFERENCE_DATE).score,
+    calculateLeadScore(candidate({ reviewCount: 100 }, "HEALTHY"), REFERENCE_DATE).score,
+  );
 });
 
 test("a missing phone lowers the score", () => {
   const listed = calculateLeadScore(candidate(), REFERENCE_DATE);
   const missing = calculateLeadScore(candidate({ phone: null }), REFERENCE_DATE);
 
-  assert.equal(listed.score - missing.score, 26);
+  assert.equal(listed.score - missing.score, 30);
   assert.ok(missing.reasons.includes("- No public phone found"));
 });
 
@@ -93,6 +128,6 @@ test("operational status affects real-provider scoring without fabricated activi
     REFERENCE_DATE,
   );
 
-  assert.equal(operational.score - closed.score, 65);
+  assert.equal(operational.score - closed.score, 76);
   assert.ok(closed.reasons.includes("- Listed as permanently closed"));
 });

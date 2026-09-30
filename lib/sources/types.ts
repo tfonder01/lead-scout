@@ -8,6 +8,37 @@ export const WEBSITE_STATUSES = [
 
 export type WebsiteStatus = (typeof WEBSITE_STATUSES)[number];
 
+export const WEBSITE_SIGNALS = [
+  "HTTPS",
+  "PAGE_REACHABLE",
+  "TITLE_PRESENT",
+  "MOBILE_VIEWPORT",
+  "CONTACT_LINK",
+  "CONTACT_CTA",
+  "FORM_FOUND",
+  "PLACEHOLDER_MARKER",
+  "BROKEN_PAGE_MARKER",
+  "THIN_CONTENT",
+  "HTTP_ONLY",
+  "TITLE_MISSING",
+  "VIEWPORT_MISSING",
+  "CONTACT_SIGNAL_MISSING",
+  "RESPONSE_FAST",
+  "RESPONSE_MODERATE",
+  "RESPONSE_SLOW",
+] as const;
+
+export type WebsiteSignal = (typeof WEBSITE_SIGNALS)[number];
+
+export type WebsiteEnrichmentResult = {
+  websiteStatus: WebsiteStatus;
+  finalUrl: string | null;
+  httpStatus: number | null;
+  responseTimeMs: number | null;
+  signals: WebsiteSignal[];
+  checkedAt: string;
+};
+
 export type SearchFilters = {
   minimumRating?: number;
   minimumReviewCount?: number;
@@ -45,13 +76,14 @@ export type SourceBusiness = {
   provider: BusinessProvider;
   sourceBusinessId: string;
   sourceUrl?: string;
-  websiteStatus: WebsiteStatus;
   operationalStatus: OperationalStatus;
   primaryType: string | null;
   pureServiceAreaBusiness: boolean | null;
 };
 
 export type CandidateBusiness = SourceBusiness & {
+  websiteStatus: WebsiteStatus;
+  websiteSignals: WebsiteSignal[];
   leadScore: number;
   scoreReasons: string[];
 };

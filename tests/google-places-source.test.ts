@@ -35,7 +35,7 @@ test("normalizes requested Google fields into provider-neutral data", () => {
   assert.equal(result.primaryType, "tree_service");
   assert.equal(result.provider, "GOOGLE_PLACES");
   assert.equal(result.latestReviewDate, null);
-  assert.equal(result.websiteStatus, "UNKNOWN");
+  assert.equal(result.website, "https://canopy.example/services");
 });
 
 test("keeps missing Google values nullable and does not invent website health", () => {
@@ -55,7 +55,6 @@ test("keeps missing Google values nullable and does not invent website health", 
   assert.equal(result.rating, null);
   assert.equal(result.reviewCount, null);
   assert.equal(result.latestReviewDate, null);
-  assert.equal(result.websiteStatus, "NONE");
   assert.equal(result.operationalStatus, "UNKNOWN");
   assert.equal(result.pureServiceAreaBusiness, true);
 });
@@ -73,7 +72,19 @@ test("rejects non-http provider URLs before they reach the UI", () => {
   assert.ok(result);
   assert.equal(result.website, null);
   assert.equal(result.sourceUrl, undefined);
-  assert.equal(result.websiteStatus, "NONE");
+});
+
+test("rejects provider URLs with embedded credentials", () => {
+  const result = normalizeGooglePlace(
+    {
+      ...GOOGLE_PLACE,
+      websiteUri: "https://user:password@example.com",
+    },
+    "Tree Service",
+  );
+
+  assert.ok(result);
+  assert.equal(result.website, null);
 });
 
 test("sends one bounded Text Search request with the explicit field mask", async () => {

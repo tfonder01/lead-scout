@@ -89,7 +89,11 @@ function safeExternalUrl(value: unknown): string | null {
 
   try {
     const url = new URL(text);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+    return (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password
+      ? url.href
+      : null;
   } catch {
     return null;
   }
@@ -129,7 +133,6 @@ export function normalizeGooglePlace(
     provider: "GOOGLE_PLACES",
     sourceBusinessId,
     ...(sourceUrl ? { sourceUrl } : {}),
-    websiteStatus: website ? "UNKNOWN" : "NONE",
     operationalStatus: normalizeOperationalStatus(place.businessStatus),
     primaryType,
     pureServiceAreaBusiness:

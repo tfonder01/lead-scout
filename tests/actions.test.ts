@@ -31,6 +31,8 @@ test("mock mode preserves the existing synthetic search flow", async () => {
     assert.equal(result.provider, "MOCK");
     assert.equal(result.businesses.length, 4);
     assert.equal(result.hasSearched, true);
+    assert.ok(result.businesses.every((business) => !("websiteEnrichment" in business)));
+    assert.ok(result.businesses.every((business) => Array.isArray(business.websiteSignals)));
   });
 });
 

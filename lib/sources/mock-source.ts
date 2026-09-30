@@ -1,5 +1,9 @@
 import type { BusinessSource } from "./business-source";
-import type { SearchBusinessesInput, SourceBusiness } from "./types";
+import type {
+  SearchBusinessesInput,
+  SourceBusiness,
+  WebsiteStatus,
+} from "./types";
 import { daysBetween } from "../utils/dates.ts";
 
 export const MOCK_DATA_AS_OF = "2026-09-28";
@@ -8,7 +12,7 @@ const RAW_MOCK_BUSINESSES: Array<
   Omit<
     SourceBusiness,
     "provider" | "operationalStatus" | "primaryType" | "pureServiceAreaBusiness"
-  >
+  > & { websiteStatus: WebsiteStatus }
 > = [
   {
     id: "mock-tree-001",
@@ -312,13 +316,26 @@ const RAW_MOCK_BUSINESSES: Array<
   },
 ];
 
-const MOCK_BUSINESSES: SourceBusiness[] = RAW_MOCK_BUSINESSES.map((business) => ({
-  ...business,
-  provider: "MOCK",
-  operationalStatus: "UNKNOWN",
-  primaryType: null,
-  pureServiceAreaBusiness: null,
-}));
+const MOCK_WEBSITE_STATUSES = new Map(
+  RAW_MOCK_BUSINESSES.map((business) => [business.id, business.websiteStatus]),
+);
+
+const MOCK_BUSINESSES: SourceBusiness[] = RAW_MOCK_BUSINESSES.map(
+  ({ websiteStatus, ...business }) => {
+    void websiteStatus;
+    return {
+      ...business,
+      provider: "MOCK",
+      operationalStatus: "UNKNOWN",
+      primaryType: null,
+      pureServiceAreaBusiness: null,
+    };
+  },
+);
+
+export function getMockWebsiteStatus(businessId: string): WebsiteStatus {
+  return MOCK_WEBSITE_STATUSES.get(businessId) ?? "UNKNOWN";
+}
 
 function normalize(value: string): string {
   return value.trim().toLocaleLowerCase();

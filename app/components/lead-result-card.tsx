@@ -1,5 +1,9 @@
 import { getPriorityBand } from "@/lib/scoring/lead-score";
-import type { CandidateBusiness, PriorityBand } from "@/lib/sources/types";
+import type {
+  CandidateBusiness,
+  PriorityBand,
+  WebsiteSignal,
+} from "@/lib/sources/types";
 import { formatReviewActivity } from "@/lib/utils/dates";
 
 const BAND_LABELS: Record<PriorityBand, string> = {
@@ -15,6 +19,41 @@ const WEBSITE_LABELS: Record<CandidateBusiness["websiteStatus"], string> = {
   UNREACHABLE: "Website unreachable",
   UNKNOWN: "Website unknown",
 };
+
+const WEBSITE_SIGNAL_LABELS: Record<WebsiteSignal, string> = {
+  HTTPS: "HTTPS",
+  PAGE_REACHABLE: "Page reachable",
+  TITLE_PRESENT: "Title present",
+  MOBILE_VIEWPORT: "Mobile viewport",
+  CONTACT_LINK: "Contact link found",
+  CONTACT_CTA: "Contact CTA found",
+  FORM_FOUND: "Form found",
+  PLACEHOLDER_MARKER: "Placeholder marker",
+  BROKEN_PAGE_MARKER: "Broken-page marker",
+  THIN_CONTENT: "Thin content",
+  HTTP_ONLY: "HTTP only",
+  TITLE_MISSING: "No page title",
+  VIEWPORT_MISSING: "No mobile viewport",
+  CONTACT_SIGNAL_MISSING: "No contact or estimate CTA",
+  RESPONSE_FAST: "Fast response",
+  RESPONSE_MODERATE: "Moderate response",
+  RESPONSE_SLOW: "Slow response",
+};
+
+function websiteEvidence(business: CandidateBusiness): string {
+  if (business.websiteStatus === "NONE") return "No provider website URL";
+  if (business.websiteStatus === "UNREACHABLE") return "Landing page did not respond";
+  if (business.websiteStatus === "UNKNOWN") return "Inspection inconclusive";
+
+  const priorities: WebsiteSignal[] = business.websiteStatus === "WEAK"
+    ? ["VIEWPORT_MISSING", "CONTACT_SIGNAL_MISSING", "HTTP_ONLY", "THIN_CONTENT", "PLACEHOLDER_MARKER", "TITLE_MISSING", "BROKEN_PAGE_MARKER"]
+    : ["HTTPS", "MOBILE_VIEWPORT", "CONTACT_CTA", "CONTACT_LINK", "FORM_FOUND", "TITLE_PRESENT"];
+  const labels = priorities
+    .filter((signal) => business.websiteSignals.includes(signal))
+    .slice(0, 2)
+    .map((signal) => WEBSITE_SIGNAL_LABELS[signal]);
+  return labels.length > 0 ? labels.join(" · ") : "Landing page inspected";
+}
 
 export function LeadResultCard({ business, referenceDate }: { business: CandidateBusiness; referenceDate: string }) {
   const band = getPriorityBand(business.leadScore);
@@ -45,7 +84,7 @@ export function LeadResultCard({ business, referenceDate }: { business: Candidat
           {business.phone ? <a href={`tel:${business.phone.replace(/\D/g, "")}`}>{business.phone}</a> : <strong className="muted-value">Not found</strong>}
           <small>Public listing</small>
         </div>
-        <div><span className="fact-label">Website</span><strong>{WEBSITE_LABELS[business.websiteStatus]}</strong><small>{business.provider === "MOCK" ? "Mock status" : "Presence only"}</small></div>
+        <div><span className="fact-label">Website</span><strong>{WEBSITE_LABELS[business.websiteStatus]}</strong><small>{business.provider === "MOCK" ? `Mock signal · ${websiteEvidence(business)}` : websiteEvidence(business)}</small></div>
       </div>
 
       <div className="score-explanation">

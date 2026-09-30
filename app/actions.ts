@@ -1,9 +1,16 @@
 "use server";
 
 import { sortBusinesses } from "../lib/results.ts";
+import {
+  createMockWebsiteEnrichment,
+  enrichBusinessWebsites,
+} from "../lib/enrichment/website-enrichment.ts";
 import { calculateLeadScore } from "../lib/scoring/lead-score.ts";
 import { GooglePlacesSourceError } from "../lib/sources/google-places-source.ts";
-import { MOCK_DATA_AS_OF } from "../lib/sources/mock-source.ts";
+import {
+  getMockWebsiteStatus,
+  MOCK_DATA_AS_OF,
+} from "../lib/sources/mock-source.ts";
 import { selectBusinessSource } from "../lib/sources/provider.ts";
 import type {
   SearchBusinessesInput,
@@ -66,13 +73,36 @@ export async function searchBusinesses(
       },
     });
 
+    const enrichment = await enrichBusinessWebsites(
+      businesses,
+      selected.provider === "MOCK"
+        ? async (business) => createMockWebsiteEnrichment(
+            business,
+            getMockWebsiteStatus(business.id),
+            `${referenceDate}T00:00:00.000Z`,
+          )
+        : undefined,
+    );
+
+    console.info("Lead Scout website enrichment", {
+      provider: selected.provider.toLowerCase(),
+      checked: enrichment.metrics.checked,
+      skipped: enrichment.metrics.skipped,
+      statusCounts: enrichment.metrics.statusCounts,
+      durationMs: enrichment.metrics.durationMs,
+    });
+
     return {
       ...emptyResult(null),
       businesses: sortBusinesses(
-        businesses.map((business) => {
+        enrichment.businesses.map((business) => {
           const score = calculateLeadScore(business, referenceDate);
+          const { websiteEnrichment, ...providerBusiness } = business;
           return {
-            ...business,
+            ...providerBusiness,
+            website: websiteEnrichment.finalUrl,
+            websiteStatus: websiteEnrichment.websiteStatus,
+            websiteSignals: websiteEnrichment.signals,
             leadScore: score.score,
             scoreReasons: score.reasons,
           };

@@ -18,6 +18,7 @@ function result(id: string, leadScore: number, reviewCount: number, latestReview
     provider: "MOCK",
     sourceBusinessId: id,
     websiteStatus: "NONE",
+    websiteSignals: [],
     operationalStatus: "UNKNOWN",
     primaryType: null,
     pureServiceAreaBusiness: null,
