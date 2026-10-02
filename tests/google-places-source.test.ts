@@ -95,10 +95,13 @@ test("sends one bounded Text Search request with the explicit field mask", async
     assert.equal(init?.method, "POST");
     assert.equal(new Headers(init?.headers).get("X-Goog-Api-Key"), "test-key");
     assert.equal(new Headers(init?.headers).get("X-Goog-FieldMask"), GOOGLE_PLACES_FIELD_MASK);
-    assert.deepEqual(JSON.parse(String(init?.body)), {
+    const body = JSON.parse(String(init?.body));
+    assert.deepEqual(body, {
       textQuery: "Tree Service in Orlando, FL",
       includePureServiceAreaBusinesses: true,
     });
+    assert.equal("pageToken" in body, false);
+    assert.equal(String(input).includes("details"), false);
     return Response.json({ places: [GOOGLE_PLACE] });
   });
 

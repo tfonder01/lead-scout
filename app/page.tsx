@@ -20,7 +20,7 @@ export default async function Home() {
           <div className="brand-mark" aria-hidden="true">SP</div>
           <div><strong>SentryPoint</strong><span>Lead Scout</span></div>
         </div>
-        <div className="environment-label">Internal tool · Phase 2</div>
+        <div className="environment-label">Internal tool · Phase 3</div>
       </header>
 
       <div className="workspace">

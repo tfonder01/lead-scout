@@ -18,6 +18,7 @@ export function LeadScout({ initialQuery, initialResult }: {
   const [activeFilter, setActiveFilter] = useState<ResultFilter>("all");
   const [sort, setSort] = useState<ResultSort>("score");
   const [isPending, startTransition] = useTransition();
+  const [sessionGoogleRequests, setSessionGoogleRequests] = useState(0);
 
   const visibleResults = useMemo(() => {
     const filtered = filterBusinesses(
@@ -33,6 +34,7 @@ export function LeadScout({ initialQuery, initialResult }: {
       try {
         const nextResult = await searchBusinesses(query);
         setSearchResult(nextResult);
+        setSessionGoogleRequests((current) => current + nextResult.requestCount);
         setLastQuery(query);
         setActiveFilter("all");
         setSort("score");
@@ -56,13 +58,19 @@ export function LeadScout({ initialQuery, initialResult }: {
         isPending={isPending}
         onSearch={handleSearch}
         supportsReviewRecency={searchResult.supportsReviewRecency}
+        provider={searchResult.provider}
       />
       <div className="dataset-note">
         <span className="status-dot" aria-hidden="true" />
         {searchResult.providerLabel}
         {searchResult.supportsReviewRecency && ` · activity measured as of ${searchResult.referenceDate}`}
-        {isGoogle && searchResult.requestCount > 0 && " · 1 provider request"}
+        {isGoogle && searchResult.requestCount > 0 && ` · ${searchResult.requestCount} Google request${searchResult.requestCount === 1 ? "" : "s"}`}
+        {isGoogle && sessionGoogleRequests > 0 && ` · ${sessionGoogleRequests} this session`}
       </div>
+
+      {searchResult.warning && (
+        <div className="warning-panel" role="status"><strong>Partial results</strong><p>{searchResult.warning}</p></div>
+      )}
 
       {searchResult.error ? (
         <div className="state-panel" role="alert"><strong>Search unavailable</strong><p>{searchResult.error}</p></div>
@@ -82,13 +90,14 @@ export function LeadScout({ initialQuery, initialResult }: {
             <div>
               <span className="eyebrow">Prioritized results</span>
               <h2>Who should I call today?</h2>
-              <p>{lastQuery.industry} near {lastQuery.location}. Scores are prioritization guidance, not an objective measure of business quality.</p>
+              <p>{lastQuery.industry} {lastQuery.mode === "batch" ? "across the requested locations" : `near ${lastQuery.location}`}. Scores are prioritization guidance, not an objective measure of business quality.</p>
             </div>
           </div>
           <ResultsSummary
             businesses={searchResult.businesses}
-            referenceDate={searchResult.referenceDate}
-            supportsReviewRecency={searchResult.supportsReviewRecency}
+            provider={searchResult.provider}
+            metrics={searchResult.metrics}
+            shownCount={searchResult.businesses.length}
           />
           <ResultsFilters
             activeFilter={activeFilter}

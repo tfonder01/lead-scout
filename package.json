@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --experimental-strip-types tests/lead-score.test.ts tests/results.test.ts tests/mock-source.test.ts tests/google-places-source.test.ts tests/provider.test.ts tests/actions.test.ts tests/website-enrichment.test.ts"
+    "test": "node --test --experimental-strip-types tests/lead-score.test.ts tests/results.test.ts tests/mock-source.test.ts tests/google-places-source.test.ts tests/provider.test.ts tests/actions.test.ts tests/website-enrichment.test.ts tests/search-plan.test.ts"
   },
   "dependencies": {
     "next": "16.3.6",

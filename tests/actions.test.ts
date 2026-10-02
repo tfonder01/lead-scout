@@ -31,6 +31,9 @@ test("mock mode preserves the existing synthetic search flow", async () => {
     assert.equal(result.provider, "MOCK");
     assert.equal(result.businesses.length, 4);
     assert.equal(result.hasSearched, true);
+    assert.equal(result.metrics.plannedRequests, 1);
+    assert.equal(result.metrics.completedRequests, 1);
+    assert.equal(result.metrics.uniqueResultCount, 4);
     assert.ok(result.businesses.every((business) => !("websiteEnrichment" in business)));
     assert.ok(result.businesses.every((business) => Array.isArray(business.websiteSignals)));
   });
@@ -44,6 +47,7 @@ test("Google mode does not spend a request before form submission", async () => 
     assert.equal(result.provider, "GOOGLE_PLACES");
     assert.equal(result.businesses.length, 0);
     assert.equal(result.requestCount, 0);
+    assert.equal(result.metrics.plannedRequests, 0);
     assert.equal(result.hasSearched, false);
   });
 });
@@ -56,6 +60,38 @@ test("Google mode without a key returns a safe, useful server-action error", asy
     assert.equal(result.provider, "GOOGLE_PLACES");
     assert.equal(result.businesses.length, 0);
     assert.equal(result.requestCount, 0);
+    assert.equal(result.metrics.failedRequests, 1);
     assert.equal(result.hasSearched, true);
+  });
+});
+
+test("batch mode executes each normalized location and returns bounded metrics", async () => {
+  await withProvider("mock", async () => {
+    const result = await searchBusinesses({
+      ...QUERY,
+      mode: "batch",
+      locations: "Orlando, FL\nWinter Park, FL",
+    });
+
+    assert.equal(result.error, null);
+    assert.equal(result.metrics.plannedRequests, 2);
+    assert.equal(result.metrics.rawResultCount, 4);
+    assert.equal(result.metrics.uniqueResultCount, 4);
+    assert.equal(result.businesses.length, 4);
+    assert.ok(result.businesses.every((item) => item.matchedLocations?.length === 1));
+  });
+});
+
+test("server-side batch validation rejects unconfirmed cost plans before provider execution", async () => {
+  await withProvider("mock", async () => {
+    const result = await searchBusinesses({
+      ...QUERY,
+      mode: "batch",
+      locations: "A\nB\nC",
+      queryVariants: "tree removal",
+    });
+
+    assert.match(result.error ?? "", /Confirm the 6-request batch/);
+    assert.equal(result.metrics.plannedRequests, 0);
   });
 });

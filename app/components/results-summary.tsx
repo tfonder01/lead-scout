@@ -1,31 +1,23 @@
-import { getPriorityBand } from "@/lib/scoring/lead-score";
-import type { CandidateBusiness } from "@/lib/sources/types";
-import { daysBetween } from "@/lib/utils/dates";
+import type { BusinessProvider, CandidateBusiness, SearchRunMetrics } from "@/lib/sources/types";
 
 export function ResultsSummary({
   businesses,
-  referenceDate,
-  supportsReviewRecency,
+  provider,
+  metrics,
+  shownCount,
 }: {
   businesses: CandidateBusiness[];
-  referenceDate: string;
-  supportsReviewRecency: boolean;
+  provider: BusinessProvider;
+  metrics: SearchRunMetrics;
+  shownCount: number;
 }) {
-  const contextualStat: readonly [number, string] = supportsReviewRecency
-    ? [
-        businesses.filter(
-          (business) =>
-            business.latestReviewDate !== null &&
-            daysBetween(business.latestReviewDate, referenceDate) > 365,
-        ).length,
-        "inactive-looking",
-      ]
-    : [businesses.filter((business) => business.phone !== null).length, "with phone"];
   const stats = [
-    [businesses.length, "businesses found"],
-    [businesses.filter((business) => getPriorityBand(business.leadScore) === "HIGH").length, "high-priority"],
+    [metrics.completedRequests + metrics.failedRequests, provider === "GOOGLE_PLACES" ? "Google requests" : "search requests"],
+    [metrics.rawResultCount, "raw businesses"],
+    [metrics.uniqueResultCount, "unique businesses"],
+    [shownCount, "top prospects shown"],
     [businesses.filter((business) => business.websiteStatus === "NONE").length, "no website"],
-    contextualStat,
+    [businesses.filter((business) => business.websiteStatus === "WEAK" || business.websiteStatus === "UNREACHABLE").length, "weak / unreachable"],
   ] as const;
 
   return (

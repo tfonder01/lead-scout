@@ -45,9 +45,17 @@ export type SearchFilters = {
   recentReviewActivity?: boolean;
 };
 
+export type SearchMode = "single" | "batch";
+export type ResultLimit = 10 | 25 | 50;
+
 export type SearchBusinessesInput = {
   industry: string;
   location: string;
+  mode?: SearchMode;
+  locations?: string;
+  queryVariants?: string;
+  batchConfirmed?: boolean;
+  resultLimit?: ResultLimit;
   filters?: SearchFilters;
 };
 
@@ -79,6 +87,9 @@ export type SourceBusiness = {
   operationalStatus: OperationalStatus;
   primaryType: string | null;
   pureServiceAreaBusiness: boolean | null;
+  matchedLocations?: string[];
+  matchedQueries?: string[];
+  deduplicationMethod?: "SOURCE_BUSINESS_ID" | "NAME_PHONE_FALLBACK";
 };
 
 export type CandidateBusiness = SourceBusiness & {
@@ -97,6 +108,18 @@ export type SearchBusinessesResult = {
   referenceDate: string;
   supportsReviewRecency: boolean;
   requestCount: number;
+  metrics: SearchRunMetrics;
+  resultLimit: ResultLimit;
   hasSearched: boolean;
+  warning: string | null;
   error: string | null;
+};
+
+export type SearchRunMetrics = {
+  plannedRequests: number;
+  completedRequests: number;
+  failedRequests: number;
+  rawResultCount: number;
+  uniqueResultCount: number;
+  durationMs: number;
 };

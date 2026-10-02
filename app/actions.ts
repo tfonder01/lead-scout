@@ -1,6 +1,11 @@
 "use server";
 
-import { sortBusinesses } from "../lib/results.ts";
+import { limitBusinesses, sortBusinesses } from "../lib/results.ts";
+import {
+  createSearchPlan,
+  executeSearchPlan,
+  SearchPlanError,
+} from "../lib/search-plan.ts";
 import {
   createMockWebsiteEnrichment,
   enrichBusinessWebsites,
@@ -17,16 +22,18 @@ import type {
   SearchBusinessesResult,
 } from "../lib/sources/types.ts";
 
-function cleanSearchValue(value: string): string {
-  return value.trim().slice(0, 80);
-}
+const EMPTY_METRICS = {
+  plannedRequests: 0,
+  completedRequests: 0,
+  failedRequests: 0,
+  rawResultCount: 0,
+  uniqueResultCount: 0,
+  durationMs: 0,
+} as const;
 
 export async function searchBusinesses(
   input: SearchBusinessesInput,
 ): Promise<SearchBusinessesResult> {
-  const industry = cleanSearchValue(input.industry);
-  const location = cleanSearchValue(input.location);
-
   let selected;
   try {
     selected = selectBusinessSource();
@@ -38,7 +45,10 @@ export async function searchBusinesses(
       referenceDate: MOCK_DATA_AS_OF,
       supportsReviewRecency: false,
       requestCount: 0,
+      metrics: EMPTY_METRICS,
+      resultLimit: 25,
       hasSearched: true,
+      warning: null,
       error: "Lead Scout provider configuration is invalid.",
     };
   }
@@ -47,6 +57,9 @@ export async function searchBusinesses(
     ? MOCK_DATA_AS_OF
     : new Date().toISOString().slice(0, 10);
 
+  const resultLimit = input.resultLimit === 10 || input.resultLimit === 50
+    ? input.resultLimit
+    : 25;
   const emptyResult = (error: string | null): SearchBusinessesResult => ({
     businesses: [],
     provider: selected.provider,
@@ -54,27 +67,65 @@ export async function searchBusinesses(
     referenceDate,
     supportsReviewRecency: selected.supportsReviewRecency,
     requestCount: 0,
+    metrics: EMPTY_METRICS,
+    resultLimit,
     hasSearched: true,
+    warning: null,
     error,
   });
 
-  if (!industry || !location) return emptyResult(null);
+  let plan;
+  try {
+    plan = createSearchPlan(input);
+  } catch (error) {
+    return emptyResult(
+      error instanceof SearchPlanError ? error.message : "Search plan is invalid.",
+    );
+  }
 
   try {
-    const businesses = await selected.source.searchBusinesses({
-      industry,
-      location,
-      filters: {
-        minimumRating: Math.max(0, Math.min(5, input.filters?.minimumRating ?? 0)),
-        minimumReviewCount: Math.max(0, input.filters?.minimumReviewCount ?? 0),
-        recentReviewActivity:
-          selected.supportsReviewRecency &&
-          Boolean(input.filters?.recentReviewActivity),
-      },
+    const minimumRating = input.filters?.minimumRating;
+    const minimumReviewCount = input.filters?.minimumReviewCount;
+    const execution = await executeSearchPlan(plan, selected.source, {
+      minimumRating: typeof minimumRating === "number" && Number.isFinite(minimumRating)
+        ? Math.max(0, Math.min(5, minimumRating))
+        : 0,
+      minimumReviewCount:
+        typeof minimumReviewCount === "number" && Number.isFinite(minimumReviewCount)
+          ? Math.max(0, minimumReviewCount)
+          : 0,
+      recentReviewActivity:
+        selected.supportsReviewRecency &&
+        Boolean(input.filters?.recentReviewActivity),
     });
 
+    if (execution.metrics.completedRequests === 0) {
+      if (execution.firstFailure instanceof GooglePlacesSourceError) {
+        console.warn("Lead Scout provider failure", {
+          provider: "google",
+          code: execution.firstFailure.code,
+          plannedRequests: execution.metrics.plannedRequests,
+          failedRequests: execution.metrics.failedRequests,
+        });
+        return {
+          ...emptyResult(execution.firstFailure.message),
+          requestCount: selected.provider === "GOOGLE_PLACES"
+            ? execution.executedRequestCount
+            : 0,
+          metrics: execution.metrics,
+        };
+      }
+      return {
+        ...emptyResult("Lead Scout search is temporarily unavailable."),
+        requestCount: selected.provider === "GOOGLE_PLACES"
+          ? execution.executedRequestCount
+          : 0,
+        metrics: execution.metrics,
+      };
+    }
+
     const enrichment = await enrichBusinessWebsites(
-      businesses,
+      execution.businesses,
       selected.provider === "MOCK"
         ? async (business) => createMockWebsiteEnrichment(
             business,
@@ -92,34 +143,44 @@ export async function searchBusinesses(
       durationMs: enrichment.metrics.durationMs,
     });
 
+    console.info("Lead Scout search run", {
+      provider: selected.provider.toLowerCase(),
+      plannedRequests: execution.metrics.plannedRequests,
+      completedRequests: execution.metrics.completedRequests,
+      failedRequests: execution.metrics.failedRequests,
+      rawResultCount: execution.metrics.rawResultCount,
+      uniqueResultCount: execution.metrics.uniqueResultCount,
+      durationMs: execution.metrics.durationMs,
+    });
+
+    const ranked = sortBusinesses(
+      enrichment.businesses.map((business) => {
+        const score = calculateLeadScore(business, referenceDate);
+        const { websiteEnrichment, ...providerBusiness } = business;
+        return {
+          ...providerBusiness,
+          website: websiteEnrichment.finalUrl,
+          websiteStatus: websiteEnrichment.websiteStatus,
+          websiteSignals: websiteEnrichment.signals,
+          leadScore: score.score,
+          scoreReasons: score.reasons,
+        };
+      }),
+      "score",
+    );
+
     return {
       ...emptyResult(null),
-      businesses: sortBusinesses(
-        enrichment.businesses.map((business) => {
-          const score = calculateLeadScore(business, referenceDate);
-          const { websiteEnrichment, ...providerBusiness } = business;
-          return {
-            ...providerBusiness,
-            website: websiteEnrichment.finalUrl,
-            websiteStatus: websiteEnrichment.websiteStatus,
-            websiteSignals: websiteEnrichment.signals,
-            leadScore: score.score,
-            scoreReasons: score.reasons,
-          };
-        }),
-        "score",
-      ),
-      requestCount: selected.provider === "GOOGLE_PLACES" ? 1 : 0,
+      businesses: limitBusinesses(ranked, resultLimit),
+      requestCount: selected.provider === "GOOGLE_PLACES"
+        ? execution.executedRequestCount
+        : 0,
+      metrics: execution.metrics,
+      warning: execution.metrics.failedRequests > 0
+        ? `${execution.metrics.failedRequests} search request${execution.metrics.failedRequests === 1 ? "" : "s"} failed. Successful results are shown.`
+        : null,
     };
-  } catch (error) {
-    if (error instanceof GooglePlacesSourceError) {
-      console.warn("Lead Scout provider failure", {
-        provider: "google",
-        code: error.code,
-      });
-      return emptyResult(error.message);
-    }
-
+  } catch {
     console.error("Lead Scout search failed", { provider: selected.provider });
     return emptyResult("Lead Scout search is temporarily unavailable.");
   }
@@ -138,7 +199,10 @@ export async function getInitialSearchResult(
         referenceDate: new Date().toISOString().slice(0, 10),
         supportsReviewRecency: false,
         requestCount: 0,
+        metrics: EMPTY_METRICS,
+        resultLimit: input.resultLimit ?? 25,
         hasSearched: false,
+        warning: null,
         error: null,
       };
     }

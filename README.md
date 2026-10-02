@@ -1,6 +1,6 @@
 # Lead Scout
 
-Lead Scout is an internal Next.js prospecting tool that searches one industry and one location, normalizes provider data, inspects each supplied business landing page, and applies deterministic lead-priority scoring. The website classification is a sales-fit signal, not an objective measure of website or business quality. Lead Scout does not write to the CRM.
+Lead Scout is an internal Next.js prospecting tool that searches one or more explicit industry/location combinations, normalizes and deduplicates provider data, inspects each unique business landing page, and applies deterministic lead-priority scoring. The website classification is a sales-fit signal, not an objective measure of website or business quality. Lead Scout helps prioritize prospects; it does not objectively rate business quality and does not write to the CRM.
 
 ## Setup
 
@@ -29,9 +29,33 @@ pnpm dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## Search modes and request planning
+
+Single Search preserves the original workflow: one industry or query, one location, and one provider request.
+
+Batch Search accepts a newline-delimited location list and a small optional list of related queries. The primary industry/query is always included. Values are trimmed, whitespace-normalized, and deduplicated case-insensitively before the plan is calculated. A single comma-delimited location line is also supported, including common `City, ST` pairs; one location per line is preferred because it is unambiguous.
+
+The request formula is:
+
+```text
+unique locations × unique query variants = planned provider requests
+```
+
+Cost and volume controls are enforced again on the server, not only in the UI:
+
+- At most 8 unique locations.
+- At most 4 unique query variants, including the primary query.
+- At most 12 provider requests in one batch.
+- Batches with 5–12 requests require explicit user confirmation.
+- At most 3 provider searches run concurrently.
+- No locations or query variants are inferred or added silently.
+- No pagination, Places Details calls, retries, or background requests are performed.
+
+The UI previews the normalized location, query, and request counts before execution. Per-run metrics include planned, completed, and failed searches; raw and unique result counts; and duration. In Google mode, the client also keeps a non-persistent count of Google requests made during the current browser session. Lead Scout does not estimate dollar cost because no rate is configured in this repository.
+
 ## Provider behavior
 
-Each Google submission makes one bounded Text Search request with no pagination, city expansion, background polling, or retries. The request uses the query `<industry> in <location>` and includes pure service-area businesses.
+Each Google plan item makes exactly one bounded Text Search request. The request uses the query `<industry or variant> in <location>` and includes pure service-area businesses. Google calls use the existing 8-second timeout and run with at most 3 calls in flight. One failed item does not discard successful results; the response reports a concise partial-results warning and safe counts. If every request fails, the normal unavailable state is returned. Raw upstream error bodies, stack traces, and API keys are not returned or logged.
 
 The explicit field mask is:
 
@@ -41,9 +65,17 @@ places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,
 
 Google response types stay inside the provider. Missing ratings, counts, phones, websites, and review dates remain unknown. Provider data is kept separate from the enrichment result before scoring.
 
+## Deduplication and result limits
+
+Businesses are deduplicated before website enrichment. The primary key is the provider plus `sourceBusinessId` (Google Place ID). If a provider unexpectedly supplies no ID, Lead Scout uses normalized business name plus public phone only when both values exist; name-only matches are deliberately not merged. The result records whether this conservative fallback was used.
+
+Duplicate matches merge the locations and queries that found the business, along with missing provider fields when a later copy has them. Provenance is shown compactly on the result card. Match count and provenance do not affect the lead score.
+
+After deduplication and one enrichment per unique business, Lead Scout applies the unchanged Phase 2 score, ranks deterministically, and returns only the selected Top 10, Top 25 (default), or Top 50. Filters and sorting operate on that bounded result set. Raw matches and duplicate businesses are not double-counted as unique businesses.
+
 ## Website enrichment
 
-After a Google Places search, Lead Scout inspects only the landing page URL supplied by the provider. It does not execute JavaScript, follow page links, crawl a site, fetch review or social pages, use browser automation, or send additional Google API requests. Raw HTML and low-level network failures remain server-side.
+After provider results are deduplicated, Lead Scout inspects only the landing page URL supplied for each unique business. It does not execute JavaScript, follow page links, crawl a site, fetch review or social pages, use browser automation, or send additional Google API requests. Raw HTML and low-level network failures remain server-side.
 
 The deterministic classifications are:
 
@@ -67,6 +99,8 @@ These rules evaluate a few reliable technical and conversion signals. They do no
 - Logs contain aggregate counts, status totals, and duration only—not URLs, response bodies, secrets, or extracted content.
 
 Known limitations: JavaScript-rendered content is not visible to the classifier; unusual HTML can produce an inconclusive or conservative result; a single landing page cannot represent an entire site; and a technically healthy page may still be a strong sales prospect for reasons outside these signals. DNS and outbound-network behavior also depends on the deployment environment.
+
+Batch search has additional known limitations: locations and query variants must be entered explicitly; there is no radius/map expansion, automatic synonym generation, pagination, Places Details enrichment, persistence, background scheduling, billing analytics, or CRM integration. Session request accounting resets when the page reloads.
 
 ## Lead scoring
 

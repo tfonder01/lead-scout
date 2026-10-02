@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { filterBusinesses, sortBusinesses } from "../lib/results.ts";
+import { filterBusinesses, limitBusinesses, sortBusinesses } from "../lib/results.ts";
 import type { CandidateBusiness } from "../lib/sources/types.ts";
 
 function result(id: string, leadScore: number, reviewCount: number, latestReviewDate: string): CandidateBusiness {
@@ -51,4 +51,14 @@ test("result filters select priority, website, and recent activity signals", () 
   assert.deepEqual(filterBusinesses(businesses, "none", "2026-09-28").map(({ id }) => id), ["high"]);
   assert.deepEqual(filterBusinesses(businesses, "weak", "2026-09-28").map(({ id }) => id), ["weak"]);
   assert.deepEqual(filterBusinesses(businesses, "recent", "2026-09-28").map(({ id }) => id), ["high"]);
+});
+
+test("result limiting returns only the requested top slice", () => {
+  const businesses = Array.from({ length: 60 }, (_, index) =>
+    result(String(index), 100 - index, index, "2026-09-20"));
+
+  assert.equal(limitBusinesses(businesses, 10).length, 10);
+  assert.equal(limitBusinesses(businesses, 25).length, 25);
+  assert.equal(limitBusinesses(businesses, 50).length, 50);
+  assert.equal(businesses.length, 60);
 });

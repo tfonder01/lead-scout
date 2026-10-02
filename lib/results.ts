@@ -1,4 +1,4 @@
-import type { CandidateBusiness } from "./sources/types";
+import type { CandidateBusiness, ResultLimit } from "./sources/types";
 import { getPriorityBand } from "./scoring/lead-score.ts";
 import { daysBetween } from "./utils/dates.ts";
 
@@ -35,4 +35,11 @@ export function sortBusinesses(
     return b.leadScore - a.leadScore ||
       (b.reviewCount ?? -1) - (a.reviewCount ?? -1);
   });
+}
+
+export function limitBusinesses(
+  businesses: CandidateBusiness[],
+  limit: ResultLimit,
+): CandidateBusiness[] {
+  return businesses.slice(0, limit);
 }

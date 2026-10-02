@@ -96,6 +96,13 @@ export function LeadResultCard({ business, referenceDate }: { business: Candidat
         </ul>
       </div>
 
+      {(business.matchedLocations?.length || business.matchedQueries?.length) && (
+        <div className="result-provenance">
+          {business.matchedLocations?.length ? <span><strong>Found in:</strong> {business.matchedLocations.join(", ")}</span> : null}
+          {business.matchedQueries?.length ? <span><strong>Matched:</strong> {business.matchedQueries.join(", ")}</span> : null}
+        </div>
+      )}
+
       <div className="lead-actions">
         {business.website && <a href={business.website} target="_blank" rel="noreferrer">Open website <span aria-hidden="true">↗</span></a>}
         {business.sourceUrl && <a href={business.sourceUrl} target="_blank" rel="noreferrer">Open source listing <span aria-hidden="true">↗</span></a>}
