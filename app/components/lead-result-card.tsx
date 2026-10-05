@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { addToSentryPointLeads } from "@/app/actions";
 import { getPriorityBand } from "@/lib/scoring/lead-score";
 import type {
   CandidateBusiness,
@@ -56,11 +60,19 @@ function websiteEvidence(business: CandidateBusiness): string {
 }
 
 export function LeadResultCard({ business, referenceDate }: { business: CandidateBusiness; referenceDate: string }) {
+  const [addResult, setAddResult] = useState<Awaited<ReturnType<typeof addToSentryPointLeads>> | null>(null);
+  const [isAdding, startAdding] = useTransition();
   const band = getPriorityBand(business.leadScore);
   const ratingLabel = business.rating === null ? "Not available" : `${business.rating.toFixed(1)} / 5`;
   const reviewCountLabel = business.reviewCount === null
     ? "Review count unavailable"
     : `${business.reviewCount} reviews`;
+  const completed = addResult?.status === "CREATED" || addResult?.status === "ALREADY_EXISTS";
+
+  function addLead() {
+    setAddResult(null);
+    startAdding(async () => setAddResult(await addToSentryPointLeads(business)));
+  }
 
   return (
     <article className="lead-card">
@@ -106,7 +118,18 @@ export function LeadResultCard({ business, referenceDate }: { business: Candidat
       <div className="lead-actions">
         {business.website && <a href={business.website} target="_blank" rel="noreferrer">Open website <span aria-hidden="true">↗</span></a>}
         {business.sourceUrl && <a href={business.sourceUrl} target="_blank" rel="noreferrer">Open source listing <span aria-hidden="true">↗</span></a>}
-        <button type="button" disabled title="CRM integration is planned for the next phase">Add to SentryPoint Leads <span>Coming next</span></button>
+        <button
+          type="button"
+          onClick={addLead}
+          disabled={isAdding || completed || business.provider !== "GOOGLE_PLACES"}
+          title={business.provider !== "GOOGLE_PLACES" ? "Only Google Places results can be added" : undefined}
+        >
+          {isAdding ? "Adding..." : addResult?.status === "CREATED" ? "Added to SentryPoint"
+            : addResult?.status === "ALREADY_EXISTS" ? "Already in SentryPoint"
+              : addResult?.status === "ERROR" ? "Retry" : "Add to SentryPoint Leads"}
+        </button>
+        {completed && addResult.leadUrl ? <a href={addResult.leadUrl} target="_blank" rel="noreferrer">Open lead <span aria-hidden="true">↗</span></a> : null}
+        {addResult?.status === "ERROR" ? <small className="lead-action-error" role="alert">{addResult.message}</small> : null}
       </div>
     </article>
   );

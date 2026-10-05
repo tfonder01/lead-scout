@@ -1,6 +1,6 @@
 # Lead Scout
 
-Lead Scout is an internal Next.js prospecting tool that searches one or more explicit industry/location combinations, normalizes and deduplicates provider data, inspects each unique business landing page, and applies deterministic lead-priority scoring. The website classification is a sales-fit signal, not an objective measure of website or business quality. Lead Scout helps prioritize prospects; it does not objectively rate business quality and does not write to the CRM.
+Lead Scout is an internal Next.js prospecting tool that searches one or more explicit industry/location combinations, normalizes and deduplicates provider data, inspects each unique business landing page, and applies deterministic lead-priority scoring. The website classification is a sales-fit signal, not an objective measure of website or business quality. Lead Scout helps prioritize prospects and can add one selected Google Places prospect to SentryPoint Leads; it does not objectively rate business quality.
 
 ## Setup
 
@@ -76,6 +76,22 @@ After deduplication and one enrichment per unique business, Lead Scout applies t
 ## Website enrichment
 
 After provider results are deduplicated, Lead Scout inspects only the landing page URL supplied for each unique business. It does not execute JavaScript, follow page links, crawl a site, fetch review or social pages, use browser automation, or send additional Google API requests. Raw HTML and low-level network failures remain server-side.
+
+## SentryPoint Leads integration
+
+Each Google Places result can be added individually through the Lead Scout server. The browser never receives the integration credential and never calls the CRM backend directly. Configure these server-only values in `.env.local`:
+
+```bash
+SENTRYPOINT_API_BASE_URL=http://localhost:8081
+SENTRYPOINT_CRM_BASE_URL=http://localhost:3000
+LEAD_SCOUT_API_TOKEN=use-the-same-dedicated-value-as-the-backend
+```
+
+The backend must configure the matching `LEAD_SCOUT_API_TOKEN`. The API base must be an HTTP(S) origin without a path; the optional CRM base creates the **Open lead** link. Missing or invalid configuration fails closed.
+
+The integration sends only the normalized result fields needed for the lead. It creates a `NEW` lead with source `Lead Scout`; score 85–100 maps to `HIGH`, 65–84 to `MEDIUM`, and lower scores to `LOW`. Website, location, score, website status, matched search context, and the Google listing URL are preserved as concise working notes. No follow-up date, outreach, email, SMS, background sync, or bulk action is triggered.
+
+Duplicate matching is conservative and ordered: exact provider/source ID, normalized phone, normalized website, then exact normalized business name plus address. Existing records are returned without being overwritten. The backend’s provider/source unique index makes repeated or concurrent requests for the same Google Place idempotent.
 
 The deterministic classifications are:
 

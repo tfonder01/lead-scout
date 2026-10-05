@@ -194,6 +194,8 @@ input:hover, select:hover, textarea:hover { border-color: var(--border-strong); 
 .lead-actions a:hover { color: var(--text); }
 .lead-actions button { margin-left: auto; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text-muted); padding: 7px 9px; font-size: 11px; }
 .lead-actions button span { margin-left: 7px; color: #63707b; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; }
+.lead-actions button:disabled { cursor: not-allowed; opacity: 0.6; }
+.lead-action-error { flex-basis: 100%; color: var(--red); font-size: 11px; }
 
 .state-panel { margin-top: 34px; border: 1px dashed var(--border-strong); border-radius: 12px; padding: 42px 24px; text-align: center; background: rgba(17, 23, 30, 0.5); }
 .state-panel.compact { margin-top: 16px; padding: 28px 20px; }

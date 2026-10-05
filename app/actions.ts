@@ -17,6 +17,12 @@ import {
   MOCK_DATA_AS_OF,
 } from "../lib/sources/mock-source.ts";
 import { selectBusinessSource } from "../lib/sources/provider.ts";
+import { addCandidateToSentryPoint, type AddLeadResult } from "../lib/sentrypoint-leads.ts";
+import type { CandidateBusiness } from "../lib/sources/types.ts";
+
+export async function addToSentryPointLeads(business: CandidateBusiness): Promise<AddLeadResult> {
+  return addCandidateToSentryPoint(business);
+}
 import type {
   SearchBusinessesInput,
   SearchBusinessesResult,
